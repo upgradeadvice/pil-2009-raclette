@@ -20,14 +20,15 @@
 # 2004-08-31 fl   Do basic sanity check on chunk identifiers (0.8)
 # 2004-09-20 fl   Added PngInfo chunk container
 # 2004-12-18 fl   Added DPI read support (based on code by Niki Spahiev)
+# 2008-08-13 fl   Added tRNS support for RGB images
 #
-# Copyright (c) 1997-2004 by Secret Labs AB
+# Copyright (c) 1997-2008 by Secret Labs AB
 # Copyright (c) 1996 by Fredrik Lundh
 #
 # See the README file for information on usage and redistribution.
 #
 
-__version__ = "0.8.2"
+__version__ = "0.8.3"
 
 import re, string
 
@@ -220,6 +221,8 @@ class PngStream(ChunkStream):
                 self.im_info["transparency"] = i
         elif self.im_mode == "L":
             self.im_info["transparency"] = i16(s)
+        elif self.im_mode == "RGB":
+            self.im_info["transparency"] = i16(s), i16(s[2:]), i16(s[4:])
         return s
 
     def chunk_gAMA(self, pos, len):
@@ -488,8 +491,11 @@ def _save(im, fp, filename, chunk=putchunk, check=0):
         elif im.mode == "L":
             transparency = max(0, min(65535, im.encoderinfo["transparency"]))
             chunk(fp, "tRNS", o16(transparency))
+        elif im.mode == "RGB":
+            red, green, blue = im.encoderinfo["transparency"]
+            chunk(fp, "tRNS", o16(red) + o16(green) + o16(blue))
         else:
-            raise IOError, "cannot use transparency for this mode"
+            raise IOError("cannot use transparency for this mode")
 
     if 0:
         # FIXME: to be supported some day

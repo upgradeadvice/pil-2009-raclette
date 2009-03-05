@@ -25,6 +25,10 @@ Dan Wolfe, and Ka-Ping Yee.
 
 *** Changes from release 1.1.6 to 1.1.7 ***
 
++ Handle simple PNG transparency also for RGB files (via the
+  transparency info attribute and save option).  (reported by
+  Sebastian Spaeth).
+
 + Added support for Unicode for truetype filenames (reported by Donn
   Ingle)
 
