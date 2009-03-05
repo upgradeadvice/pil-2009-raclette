@@ -778,9 +778,10 @@ class Image:
 
         self.load()
 
-        from ImageFilter import Filter
-        if not isinstance(filter, Filter):
+        if callable(filter):
             filter = filter()
+        if not hasattr(filter, "filter"):
+            raise TypeError("filter argument should be ImageFilter.Filter instance or class")
 
         if self.im.bands == 1:
             return self._new(filter.filter(self.im))
@@ -1562,8 +1563,7 @@ class Image:
     def transform(self, size, method, data=None, resample=NEAREST, fill=1):
         "Transform image"
 
-        import ImageTransform
-        if isinstance(method, ImageTransform.Transform):
+        if hasattr(method, "getdata"):
             method, data = method.getdata()
         if data is None:
             raise ValueError("missing method data")
