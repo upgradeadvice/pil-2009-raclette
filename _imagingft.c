@@ -1,6 +1,6 @@
 /*
  * PIL FreeType Driver
- * $Id: _imagingft.c 2756 2006-06-19 06:07:18Z fredrik $
+ * $Id$
  *
  * a FreeType 2.X driver for PIL
  *
@@ -13,14 +13,15 @@
  * 2004-05-15 fl  Fixed compilation for FreeType 2.1.8
  * 2004-09-10 fl  Added support for monochrome bitmaps
  * 2006-06-18 fl  Fixed glyph bearing calculation
+ * 2007-12-23 fl  Fixed crash in family/style attribute fetch
  *
- * Copyright (c) 1998-2006 by Secret Labs AB
+ * Copyright (c) 1998-2007 by Secret Labs AB
  */
 
 #include "Python.h"
 #include "Imaging.h"
 
-#ifndef USE_FREETYPE_2_0
+#if !defined(USE_FREETYPE_2_0)
 /* undef/comment out to use freetype 2.0 */
 #define USE_FREETYPE_2_1
 #endif
@@ -46,7 +47,11 @@
 #endif
 #endif
 
-#ifndef FT_LOAD_TARGET_MONO
+#if !defined(Py_RETURN_NONE)
+#define Py_RETURN_NONE return Py_INCREF(Py_None), Py_None
+#endif
+
+#if !defined(FT_LOAD_TARGET_MONO)
 #define FT_LOAD_TARGET_MONO  FT_LOAD_MONOCHROME
 #endif
 
@@ -390,8 +395,7 @@ font_render(FontObject* self, PyObject* args)
         last_index = index;
     }
 
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 static void
@@ -421,11 +425,16 @@ font_getattr(FontObject* self, char* name)
     PyErr_Clear();
 
     /* attributes */
-    if (!strcmp(name, "family"))
-        return PyString_FromString(self->face->family_name);
-    if (!strcmp(name, "style"))
-        return PyString_FromString(self->face->style_name);
-
+    if (!strcmp(name, "family")) {
+        if (self->face->family_name)
+            return PyString_FromString(self->face->family_name);
+        Py_RETURN_NONE;
+    }
+    if (!strcmp(name, "style")) {
+        if (self->face->style_name)
+            return PyString_FromString(self->face->style_name);
+        Py_RETURN_NONE;
+    }
     if (!strcmp(name, "ascent"))
         return PyInt_FromLong(PIXEL(self->face->size->metrics.ascender));
     if (!strcmp(name, "descent"))

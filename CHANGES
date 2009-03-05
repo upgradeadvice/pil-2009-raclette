@@ -25,6 +25,9 @@ Dan Wolfe, and Ka-Ping Yee.
 
 *** Changes from release 1.1.6 to 1.1.7 ***
 
++ Fixed crash in ImageFont's getname() method when the font file has
+  no style information (from Donn Ingle)
+
 + Fixed encoding issue in PIL/WalImageFile.py (from Santiago M. Mola)
 
 *** Changes from release 1.1.5 to 1.1.6 ***
