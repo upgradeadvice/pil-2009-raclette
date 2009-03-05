@@ -1667,6 +1667,9 @@ class _ImageCrop(Image):
             self.im = self.im.crop(self.__crop)
             self.__crop = None
 
+        if self.im:
+            return self.im.pixel_access(self.readonly)
+
         # FIXME: future versions should optimize crop/paste
         # sequences!
 
