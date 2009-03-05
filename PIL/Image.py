@@ -438,6 +438,7 @@ class Image:
 
     def __init__(self):
         # FIXME: take "new" parameters / other image?
+        # FIXME: turn mode and size into delegating properties?
         self.im = None
         self.mode = ""
         self.size = (0, 0)
@@ -618,7 +619,6 @@ class Image:
         "Verify file contents."
         pass
 
-
     ##
     # Returns a converted copy of this image. For the "P" mode, this
     # method translates pixels through the palette.  If mode is
@@ -637,10 +637,18 @@ class Image:
     # "1"), all non-zero values are set to 255 (white). To use other
     # thresholds, use the {@link #Image.point} method.
     #
-    # @def convert(mode, matrix=None)
+    # @def convert(mode, matrix=None, **options)
     # @param mode The requested mode.
     # @param matrix An optional conversion matrix.  If given, this
     #    should be 4- or 16-tuple containing floating point values.
+    # @param options Additional options, given as keyword arguments.
+    # @keyparam dither Dithering method, used when converting from
+    #    mode "RGB" to "P".
+    #    Available methods are NONE or FLOYDSTEINBERG (default).
+    # @keyparam palette Palette to use when converting from mode "RGB"
+    #    to "P".  Available palettes are WEB or ADAPTIVE.
+    # @keyparam colors Number of colors to use for the ADAPTIVE palette.
+    #    Defaults to 256.
     # @return An Image object.
 
     def convert(self, mode=None, data=None, dither=None,
@@ -1326,7 +1334,7 @@ class Image:
             matrix[2] = self.size[0] / 2.0 - x
             matrix[5] = self.size[1] / 2.0 - y
 
-            return self.transform((w, h), AFFINE, matrix)
+            return self.transform((w, h), AFFINE, matrix, resample)
 
         if resample not in (NEAREST, BILINEAR, BICUBIC):
             raise ValueError("unknown resampling filter")
@@ -1455,7 +1463,7 @@ class Image:
     def show(self, title=None, command=None):
         "Display image (for debug purposes only)"
 
-        _showxv(self, title, command)
+        _show(self, title=title, command=command)
 
     ##
     # Split this image into individual bands. This method returns a
@@ -1813,7 +1821,7 @@ def frombuffer(mode, size, data, decoder_name="raw", *args):
             im.readonly = 1
             return im
 
-    return apply(fromstring, (mode, size, data, decoder_name, args))
+    return fromstring(mode, size, data, decoder_name, args)
 
 
 ##
@@ -2063,7 +2071,11 @@ def register_extension(id, extension):
 
 
 # --------------------------------------------------------------------
-# Simple display support
+# Simple display support.  User code may override this.
+
+def _show(image, **options):
+    # override me, as necessary
+    _showxv(image, **options)
 
 def _showxv(image, title=None, command=None):
 
@@ -2076,6 +2088,7 @@ def _showxv(image, title=None, command=None):
     else:
         format = None
         if not command:
+            # FIXME: xv is horribly outdate; use "display" instead
             command = "xv"
             if title:
                 command = command + " -name \"%s\"" % title
