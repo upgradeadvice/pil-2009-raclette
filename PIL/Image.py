@@ -437,6 +437,7 @@ class Image:
     format_description = None
 
     def __init__(self):
+        # FIXME: take "new" parameters / other image?
         self.im = None
         self.mode = ""
         self.size = (0, 0)
@@ -480,6 +481,13 @@ class Image:
             file = file + "." + format
             self.save(file, format)
         return file
+
+    def __repr__(self):
+        return "<%s.%s image mode=%s size=%dx%d at 0x%X>" % (
+            self.__class__.__module__, self.__class__.__name__,
+            self.mode, self.size[0], self.size[1],
+            id(self)
+            )
 
     def __getattr__(self, name):
         if name == "__array_interface__":
