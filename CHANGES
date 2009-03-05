@@ -25,6 +25,8 @@ Dan Wolfe, and Ka-Ping Yee.
 
 *** Changes from release 1.1.6 to 1.1.7 ***
 
++ Look for Tcl/Tk files in /usr/include/tclX.X (from Encolpe Degoute)
+
 + Fixed rounding error in ImageColor.getcolor("L") (from Tim Hatch).
 
 + Fixed truetype positioning when first character has a negative left
