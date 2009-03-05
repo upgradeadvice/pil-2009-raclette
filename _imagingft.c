@@ -14,6 +14,7 @@
  * 2004-09-10 fl  Added support for monochrome bitmaps
  * 2006-06-18 fl  Fixed glyph bearing calculation
  * 2007-12-23 fl  Fixed crash in family/style attribute fetch
+ * 2008-01-02 fl  Handle Unicode filenames properly
  *
  * Copyright (c) 1998-2007 by Secret Labs AB
  */
@@ -117,9 +118,17 @@ getfont(PyObject* self_, PyObject* args, PyObject* kw)
     static char* kwlist[] = {
         "filename", "size", "index", "encoding", NULL
     };
+
+#if defined(HAVE_UNICODE)
+    if (!PyArg_ParseTupleAndKeywords(args, kw, "eti|is", kwlist,
+                                     Py_FileSystemDefaultEncoding, &filename,
+                                     &size, &index, &encoding))
+        return NULL;
+#else
     if (!PyArg_ParseTupleAndKeywords(args, kw, "si|is", kwlist,
                                      &filename, &size, &index, &encoding))
         return NULL;
+#endif
 
     if (!library && FT_Init_FreeType(&library)) {
         PyErr_SetString(
