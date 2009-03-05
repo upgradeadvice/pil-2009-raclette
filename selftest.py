@@ -5,12 +5,11 @@ ROOT = "."
 
 import os, sys
 sys.path.insert(0, ROOT)
-sys.path.insert(1, os.path.join(ROOT, "PIL"))
 
-import Image
-import ImageDraw
-import ImageFilter
-import ImageMath
+from PIL import Image
+from PIL import ImageDraw
+from PIL import ImageFilter
+from PIL import ImageMath
 
 try:
     Image.core.ping
