@@ -1,9 +1,11 @@
-# $Id: selftest.py 2813 2006-10-07 10:11:35Z fredrik $
+# $Id$
 # minimal sanity check
 
-import sys
-sys.path.insert(0, ".")
-sys.path.insert(1, "PIL")
+ROOT = "."
+
+import os, sys
+sys.path.insert(0, ROOT)
+sys.path.insert(1, os.path.join(ROOT, "PIL"))
 
 import Image
 import ImageDraw
@@ -42,18 +44,21 @@ def testimage():
 
     Or open existing files:
 
-    >>> im = Image.open("Images/lena.gif")
+    >>> im = Image.open(os.path.join(ROOT, "Images/lena.gif"))
     >>> _info(im)
     ('GIF', 'P', (128, 128))
-    >>> _info(Image.open("Images/lena.ppm"))
+    >>> _info(Image.open(os.path.join(ROOT, "Images/lena.ppm")))
     ('PPM', 'RGB', (128, 128))
-    >>> _info(Image.open("Images/lena.jpg"))
+    >>> try:
+    ...  _info(Image.open(os.path.join(ROOT, "Images/lena.jpg")))
+    ... except IOError, v:
+    ...  print v
     ('JPEG', 'RGB', (128, 128))
 
     PIL doesn't actually load the image data until it's needed,
     or you call the "load" method:
 
-    >>> im = Image.open("Images/lena.ppm")
+    >>> im = Image.open(os.path.join(ROOT, "Images/lena.ppm"))
     >>> print im.im # internal image attribute
     None
     >>> a = im.load()
@@ -63,7 +68,7 @@ def testimage():
     You can apply many different operations on images.  Most
     operations return a new image:
 
-    >>> im = Image.open("Images/lena.ppm")
+    >>> im = Image.open(os.path.join(ROOT, "Images/lena.ppm"))
     >>> _info(im.convert("L"))
     (None, 'L', (128, 128))
     >>> _info(im.copy())
