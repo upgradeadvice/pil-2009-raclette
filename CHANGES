@@ -1,5 +1,5 @@
 The Python Imaging Library
-$Id: CHANGES 2934 2006-12-03 12:14:00Z fredrik $
+$Id$
 
 ACKNOWLEDGEMENTS: PIL wouldn't be what it is without the help of,
 among others: David Ascher, Phil Austin, Douglas Bagnall, Larry Bates,
@@ -24,6 +24,9 @@ Twardoch, Rune Uhlin, Dmitry Vasiliev, Sasha Voynow, Charles Waldman,
 Dan Wolfe, and Ka-Ping Yee.
 
 *** Changes from release 1.1.6 to 1.1.7 ***
+
++ Added support for Unicode for truetype filenames (reported by Donn
+  Ingle)
 
 + Fixed crash in ImageFont's getname() method when the font file has
   no style information (from Donn Ingle)
