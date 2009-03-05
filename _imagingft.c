@@ -333,7 +333,7 @@ font_render(FontObject* self, PyObject* args)
 
     for (x = i = 0; font_getchar(string, i, &ch); i++) {
         if (i == 0 && self->face->glyph->metrics.horiBearingX < 0)
-            x = PIXEL(self->face->glyph->metrics.horiBearingX);
+            x = -PIXEL(self->face->glyph->metrics.horiBearingX);
         index = FT_Get_Char_Index(self->face, ch);
         if (kerning && last_index && index) {
             FT_Vector delta;
