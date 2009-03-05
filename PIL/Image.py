@@ -1,6 +1,6 @@
 #
 # The Python Imaging Library.
-# $Id: Image.py 2933 2006-12-03 12:08:22Z fredrik $
+# $Id$
 #
 # the Image class wrapper
 #
@@ -17,13 +17,13 @@
 # 2005-03-28 fl   PIL release 1.1.5
 # 2006-12-02 fl   PIL release 1.1.6
 #
-# Copyright (c) 1997-2006 by Secret Labs AB.  All rights reserved.
-# Copyright (c) 1995-2006 by Fredrik Lundh.
+# Copyright (c) 1997-2008 by Secret Labs AB.  All rights reserved.
+# Copyright (c) 1995-2008 by Fredrik Lundh.
 #
 # See the README file for information on usage and redistribution.
 #
 
-VERSION = "1.1.6"
+VERSION = "1.1.7-snapshot"
 
 try:
     import warnings
