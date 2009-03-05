@@ -574,13 +574,19 @@ class TiffImageFile(ImageFile.ImageFile):
 
         self.info["compression"] = self._compression
 
-        xdpi = getscalar(X_RESOLUTION, (1, 1))
-        ydpi = getscalar(Y_RESOLUTION, (1, 1))
+        xres = getscalar(X_RESOLUTION, (1, 1))
+        yres = getscalar(Y_RESOLUTION, (1, 1))
 
-        if xdpi and ydpi and getscalar(RESOLUTION_UNIT, 1) == 1:
-            xdpi = xdpi[0] / (xdpi[1] or 1)
-            ydpi = ydpi[0] / (ydpi[1] or 1)
-            self.info["dpi"] = xdpi, ydpi
+        if xres and yres:
+            xres = xres[0] / (xres[1] or 1)
+            yres = yres[0] / (yres[1] or 1)
+            resunit = getscalar(RESOLUTION_UNIT, 1)
+            if resunit == 2: # dots per inch
+                self.info["dpi"] = xres, yres
+            elif resunit == 3: # dots per centimeter. convert to dpi
+                self.info["dpi"] = xres * 2.54, yres * 2.54
+            else: # No absolute unit of measurement
+                self.info["resolution"] = xres, yres
 
         # build tile descriptors
         x = y = l = 0
@@ -718,7 +724,7 @@ def _save(im, fp, filename):
 
     dpi = im.encoderinfo.get("dpi")
     if dpi:
-        ifd[RESOLUTION_UNIT] = 1
+        ifd[RESOLUTION_UNIT] = 2
         ifd[X_RESOLUTION] = _cvt_res(dpi[0])
         ifd[Y_RESOLUTION] = _cvt_res(dpi[1])
 

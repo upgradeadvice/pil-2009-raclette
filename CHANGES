@@ -25,6 +25,9 @@ Dan Wolfe, and Ka-Ping Yee.
 
 *** Changes from release 1.1.6 to 1.1.7 ***
 
++ Fixed resolution unit bug in Tiff reader/writer (based on patches
+  by Gary Bloom and Florian Höch)
+
 + Handle simple PNG transparency also for RGB files (via the
   transparency info attribute and save option).  (reported by
   Sebastian Spaeth).
