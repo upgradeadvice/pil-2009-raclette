@@ -120,7 +120,10 @@ def test_scary():
     # Check reading of evil PNG file.  For information, see:
     # http://scary.beasts.org/security/CESA-2004-001.txt
 
-    file = "Tests/images/pngtest_bad.png"
+    import base64
+    file = "Tests/images/pngtest_bad.png.base64"
+    data = base64.decodestring(open(file).read())
+    file = StringIO(data)
     assert_exception(IOError, lambda: Image.open(file))
 
 def test_trns_rgb():

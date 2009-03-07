@@ -17,6 +17,7 @@ files.sort()
 
 success = failure = 0
 include = [x for x in sys.argv[1:] if x[:2] != "--"]
+skipped = []
 
 for file in files:
     test, ext = os.path.splitext(os.path.basename(file))
@@ -31,6 +32,7 @@ for file in files:
         result = None
     elif result == "skip":
         print "---", "skipped" # FIXME: driver should include a reason
+        skipped.append(test)
         continue
     elif not result:
         result = "(no output)"
@@ -49,7 +51,17 @@ for file in files:
 
 print "-"*68
 
+tempfiles = glob.glob(os.path.join(root, "temp_*"))
+if tempfiles:
+    print "===", "remaining temporary files"
+    for file in tempfiles:
+        print file
+    print "-"*68
+
+if skipped:
+    print "--- %d tests skipped." % len(skipped)
+    print skipped
 if failure:
-    print "*** %s tests of %d failed." % (failure, success + failure)
+    print "*** %d tests of %d failed." % (failure, success + failure)
 else:
-    print "%s tests passed." % success
+    print "%d tests passed." % success
