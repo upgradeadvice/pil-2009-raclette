@@ -2,7 +2,7 @@ from tester import *
 
 from PIL import Image
 
-im = Image.open("Images/lena.jpg").resize((128, 100))
+im = Image.open("Images/lena.ppm").resize((128, 100))
 
 def test_toarray():
     def test(mode):
