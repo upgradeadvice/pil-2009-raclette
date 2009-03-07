@@ -28,6 +28,7 @@ ImagingZipEncode(Imaging im, ImagingCodecState state, UINT8* buf, int bytes)
     int err;
     UINT8* ptr;
     int i, bpp, s, sum;
+    ImagingSectionCookie cookie;
 
     if (!state->state) {
 
@@ -104,6 +105,7 @@ ImagingZipEncode(Imaging im, ImagingCodecState state, UINT8* buf, int bytes)
     context->z_stream.next_out = buf;
     context->z_stream.avail_out = bytes;
 
+    ImagingSectionEnter(&cookie);
     for (;;) {
 
 	switch (state->state) {
@@ -258,6 +260,7 @@ ImagingZipEncode(Imaging im, ImagingCodecState state, UINT8* buf, int bytes)
 		    free(context->prior);
 		    free(context->previous);
 		    deflateEnd(&context->z_stream);
+                    ImagingSectionEnter(&cookie);
 		    return -1;
 		}
 
@@ -300,13 +303,13 @@ ImagingZipEncode(Imaging im, ImagingCodecState state, UINT8* buf, int bytes)
 	    }
 
 	}
-	
+	ImagingSectionLeave(&cookie);
 	return bytes - context->z_stream.avail_out;
 
     }
 
     /* Should never ever arrive here... */
-
+     ImagingSectionLeave(&cookie);
     state->errcode = IMAGING_CODEC_CONFIG;
     return -1;
 }
