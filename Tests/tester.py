@@ -1,16 +1,13 @@
 # some test helpers
 
 _target = None
-_failure = _success = 0
 
 def success():
-    global _success
-    _success = _success + 1
+    success.count += 1
 
 def failure(msg=None, frame=None):
-    global _failure
     import sys, linecache
-    _failure = _failure + 1
+    failure.count += 1
     if _target:
         if frame is None:
             frame = sys._getframe()
@@ -22,6 +19,8 @@ def failure(msg=None, frame=None):
         print prefix + line.strip() + " failed:"
     if msg:
         print "- " + msg
+
+success.count = failure.count = 0
 
 # predicates
 
@@ -82,7 +81,7 @@ def tostring(im, format, **options):
 # test runner
 
 def run():
-    global _target, _failure, run
+    global _target, run
     import sys, traceback
     _target = sys.modules["__main__"]
     run = None # no need to run twice
@@ -93,7 +92,11 @@ def run():
     tests.sort() # sort by line
     for lineno, name, func in tests:
         try:
-            func()
+            result = func()
+            if hasattr(result, "__iter__"):
+                # FIXME: make failure report include the arguments
+                for test in result:
+                    test[0](*test[1:])
         except:
             t, v, tb = sys.exc_info()
             tb = tb.tb_next
@@ -103,7 +106,7 @@ def run():
             else:
                 print "%s:%d: cannot call test function: %s" % (
                     _target.__file__, lineno, v)
-                _failure = _failure + 1
+                failure.count += 1
 
 def skip(msg=None):
     import os
@@ -114,7 +117,7 @@ def _setup():
     def report():
         if run:
             run()
-        if _success and not _failure:
+        if success.count and not failure.count:
             print "ok"
     import atexit
     atexit.register(report)
