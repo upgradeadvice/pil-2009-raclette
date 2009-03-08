@@ -34,11 +34,12 @@ def libinclude(root):
 #
 # TIFF_ROOT = libinclude("/opt/tiff")
 
-FREETYPE_ROOT = None
-JPEG_ROOT = None
-TIFF_ROOT = None
-ZLIB_ROOT = None
 TCL_ROOT = None
+JPEG_ROOT = None
+ZLIB_ROOT = None
+TIFF_ROOT = None
+FREETYPE_ROOT = None
+LCMS_ROOT = None
 
 # FIXME: add mechanism to explicitly *disable* the use of a library
 
@@ -188,7 +189,8 @@ class pil_build_ext(build_ext):
         #
         # add configured kits
 
-        for root in [FREETYPE_ROOT, JPEG_ROOT, TCL_ROOT, TIFF_ROOT, ZLIB_ROOT]:
+        for root in (TCL_ROOT, JPEG_ROOT, TCL_ROOT, TIFF_ROOT, ZLIB_ROOT,
+                     FREETYPE_ROOT, LCMS_ROOT):
             if isinstance(root, type(())):
                 lib_root, include_root = root
             else:
@@ -223,7 +225,7 @@ class pil_build_ext(build_ext):
         # look for available libraries
 
         class feature:
-            zlib = jpeg = tiff = freetype = tcl = tk = None
+            zlib = jpeg = tiff = freetype = tcl = tk = lcms = None
         feature = feature()
 
         if find_include_file(self, "zlib.h"):
@@ -261,6 +263,10 @@ class pil_build_ext(build_ext):
                 feature.freetype_version = freetype_version
                 if dir:
                     add_directory(self.compiler.include_dirs, dir, 0)
+
+        if find_include_file(self, "lcms.h"):
+            if find_library_file(self, "lcms"):
+                feature.lcms = "lcms"
 
         if _tkinter and find_include_file(self, "tk.h"):
             # the library names may vary somewhat (e.g. tcl84 or tcl8.4)
@@ -381,6 +387,7 @@ class pil_build_ext(build_ext):
             (feature.zlib, "ZLIB (PNG/ZIP)"),
             # (feature.tiff, "experimental TIFF G3/G4 read"),
             (feature.freetype, "FREETYPE2"),
+            (feature.lcms, "LITTLECMS"),
             ]
 
         all = 1
