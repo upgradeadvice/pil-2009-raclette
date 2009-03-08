@@ -586,11 +586,10 @@ def getProfileName(profile):
         # you can't use type() on a PyCObject... argh!
         profile = profile.profile
 
-    result = pyCMSdll.getProfileName(profile)
+    result = pyCMSdll.getProfileName(profile) + "\n"
 
-    if len(result) > 7 and result[:7] == "ERROR: ":
+    if result[:7] == "ERROR: ":
         raise PyCMSError(result)
-
     else:
         return result
       
@@ -625,9 +624,9 @@ def getProfileInfo(profile):
         # you can't use type() on a PyCObject... argh!
         profile = profile.profile
         
-    result = pyCMSdll.getProfileInfo(profile)
+    result = pyCMSdll.getProfileInfo(profile) + "\n"
 
-    if len(result) > 7 and result[:7] == "ERROR: ":
+    if result[:7] == "ERROR: ":
         raise PyCMSError(result)
 
     else:

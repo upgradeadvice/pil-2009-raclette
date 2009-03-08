@@ -523,7 +523,7 @@ getProfileName(PyObject *self, PyObject *args)
 {
   // I've had some intermittant problems with this function and getProfileInfo... look at them closer
   char *sProfile;
-  char name[1024];
+  PyObject* result;
 
   BOOL closeProfile = FALSE;
 
@@ -541,21 +541,19 @@ getProfileName(PyObject *self, PyObject *args)
     closeProfile = TRUE;
   }
 
-  // is there a better way to do this?  I can't seem to work with the const char* return value otherwise
-  sprintf(name, "%s\n", cmsTakeProductName(hProfile));
+  result = PyString_FromString(cmsTakeProductName(hProfile));
 
-  if (closeProfile == TRUE) {
+  if (closeProfile)
     cmsCloseProfile(hProfile);
-  }
 
-  return Py_BuildValue("s", name);
+  return result;
 }
 
 static PyObject *
 getProfileInfo(PyObject *self, PyObject *args)
 {
   char *sProfile;
-  char info[4096];
+  PyObject* result;
   BOOL closeProfile = FALSE;
 
   cmsHPROFILE hProfile;
@@ -572,14 +570,12 @@ getProfileInfo(PyObject *self, PyObject *args)
     closeProfile = TRUE;
   }
 
-  // is there a better way to do this?  I can't seem to work with the const char* return value otherwise
-  sprintf(info, "%s\n", cmsTakeProductInfo(hProfile));
+  result = PyString_FromString(cmsTakeProductInfo(hProfile));
 
-  if (closeProfile == TRUE) {
+  if (closeProfile)
     cmsCloseProfile(hProfile);
-  }
 
-  return Py_BuildValue("s", info);
+  return result;
 }
 
 static PyObject *
@@ -603,13 +599,13 @@ getDefaultIntent(PyObject *self, PyObject *args)
     closeProfile = TRUE;
   }
 
-  intent =  cmsTakeRenderingIntent(hProfile);
+  intent = cmsTakeRenderingIntent(hProfile);
 
   if (closeProfile == TRUE) {
     cmsCloseProfile(hProfile);
   }
 
-  return Py_BuildValue("i", intent);
+  return PyInt_FromLong(intent);
 }
 
 static PyObject *
