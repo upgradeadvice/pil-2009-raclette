@@ -25,34 +25,10 @@ Dan Wolfe, and Ka-Ping Yee.
 
 *** Changes from release 1.1.6 to 1.1.7 ***
 
-+ Fixed OverflowError when reading top-to-bottom BMP images (reported
-  by Wichert Akkerman, who also provided samples).
+FIXME: This section will be updated before the first alpha.  For now,
+see the repository revision history, available here:
 
-+ Fixed JPEG CMYK handling (from Kevin Cazabon and Paul Egan).
-
-+ Added resolution save option for PDF files (from Andreas Kostyrka).
-
-+ Look for Tcl/Tk files in /usr/include/tclX.X (from Encolpe Degoute)
-
-+ Fixed rounding error in ImageColor.getcolor("L") (from Tim Hatch).
-
-+ Fixed truetype positioning when first character has a negative left
-  bearing (from Ned Batchelder).
-
-+ Fixed resolution unit bug in Tiff reader/writer (based on patches
-  by Gary Bloom and Florian Höch)
-
-+ Handle simple PNG transparency also for RGB files (via the
-  transparency info attribute and save option).  (reported by
-  Sebastian Spaeth).
-
-+ Added support for Unicode for truetype filenames (reported by Donn
-  Ingle)
-
-+ Fixed crash in ImageFont's getname() method when the font file has
-  no style information (from Donn Ingle)
-
-+ Fixed encoding issue in PIL/WalImageFile.py (from Santiago M. Mola)
+  http://bitbucket.org/effbot/pil-2009-raclette/changesets/
 
 *** Changes from release 1.1.5 to 1.1.6 ***
 
