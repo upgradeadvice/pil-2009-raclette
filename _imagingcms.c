@@ -4,6 +4,8 @@
  * Copyright (C) 2002-2003 Kevin Cazabon
  * kevin@cazabon.com
  * http://www.cazabon.com
+ * Adapted/reworked for PIL by Fredrik Lundh
+ * Copyright (c) 2009 Fredrik Lundh
  * 
  * pyCMS home page:  http://www.cazabon.com/pyCMS
  * littleCMS home page:  http://www.littlecms.com
@@ -30,7 +32,7 @@ http://www.cazabon.com\n\
 /* version history */
 
 /*
-0.1.0 pil integration
+0.1.0 pil integration & refactoring
 0.0.2 alpha:  Minor updates, added interfaces to littleCMS features, Jan 6, 2003
     - fixed some memory holes in how transforms/profiles were created and passed back to Python
        due to improper destructor setup for PyCObjects
@@ -41,21 +43,15 @@ http://www.cazabon.com\n\
 
 */
 
-/* known to-do list with current version */
+/* known to-do list with current version:
 
-/*
-Add comments to code to make it clearer for others to read/understand!!!
 Verify that PILmode->littleCMStype conversion in findLCMStype is correct for all PIL modes (it probably isn't for the more obscure ones)
   
-Add support for reading and writing embedded profiles in JPEG and TIFF files
 Add support for creating custom RGB profiles on the fly
 Add support for checking presence of a specific tag in a profile
 Add support for other littleCMS features as required
 
 */
-
-
-/* reference */
 
 /*
 INTENT_PERCEPTUAL                 0
@@ -66,6 +62,8 @@ INTENT_ABSOLUTE_COLORIMETRIC      3
 
 /* -------------------------------------------------------------------- */
 /* wrapper classes */
+
+/* a profile represents the ICC characteristics for a specific device */
 
 typedef struct {
     PyObject_HEAD
@@ -96,33 +94,35 @@ cms_profile_open(PyObject* self, PyObject* args)
     cmsHPROFILE hProfile;
 
     char* sProfile;
-    if (!PyArg_ParseTuple(args, "s:OpenProfile", &sProfile))
+    if (!PyArg_ParseTuple(args, "s:profile_open", &sProfile))
       return NULL;
 
     cmsErrorAction(LCMS_ERROR_IGNORE);
 
     hProfile = cmsOpenProfileFromFile(sProfile, "r");
-    if (!hProfile)
+    if (!hProfile) {
       PyErr_SetString(PyExc_IOError, "cannot open profile file");
+      return NULL;
+    }
 
     return cms_profile_new(hProfile);
 }
 
 static PyObject*
-cms_profile_open_memory(PyObject* self, PyObject* args)
+cms_profile_fromstring(PyObject* self, PyObject* args)
 {
     cmsHPROFILE hProfile;
 
     char* pProfile;
     int nProfile;
-    if (!PyArg_ParseTuple(args, "s#:OpenMemoryProfile", &pProfile, &nProfile))
+    if (!PyArg_ParseTuple(args, "s#:profile_fromstring", &pProfile, &nProfile))
       return NULL;
 
     cmsErrorAction(LCMS_ERROR_IGNORE);
 
     hProfile = cmsOpenProfileFromMem(pProfile, nProfile);
     if (!hProfile)
-      PyErr_SetString(PyExc_IOError, "cannot open memory profile");
+      PyErr_SetString(PyExc_IOError, "cannot open profile from string");
 
     return cms_profile_new(hProfile);
 }
@@ -133,6 +133,8 @@ cms_profile_dealloc(CmsProfileObject* self)
     cmsCloseProfile(self->profile);
     PyObject_Del(self);
 }
+
+/* a transform represents the mapping between two profiles */
 
 typedef struct {
     PyObject_HEAD
@@ -258,7 +260,7 @@ pyCMSdoTransform(Imaging im, Imaging imOut, cmsHTRANSFORM hTransform)
 }
 
 static cmsHTRANSFORM
-_buildTransform(cmsHPROFILE hInputProfile, cmsHPROFILE hOutputProfile, char *sInMode, char *sOutMode, int iRenderingIntent)
+_buildTransform(cmsHPROFILE hInputProfile, cmsHPROFILE hOutputProfile, char *sInMode, char *sOutMode, int iRenderingIntent, DWORD cmsFLAGS)
 {
   cmsHTRANSFORM hTransform;
 
@@ -271,7 +273,7 @@ _buildTransform(cmsHPROFILE hInputProfile, cmsHPROFILE hOutputProfile, char *sIn
                                  findLCMStype(sInMode),
                                  hOutputProfile,
                                  findLCMStype(sOutMode),
-                                 iRenderingIntent, 0);
+                                 iRenderingIntent, cmsFLAGS);
 
   Py_END_ALLOW_THREADS
 
@@ -282,7 +284,7 @@ _buildTransform(cmsHPROFILE hInputProfile, cmsHPROFILE hOutputProfile, char *sIn
 }
 
 static cmsHTRANSFORM
-_buildProofTransform(cmsHPROFILE hInputProfile, cmsHPROFILE hOutputProfile, cmsHPROFILE hDisplayProfile, char *sInMode, char *sOutMode, int iRenderingIntent, int iDisplayIntent)
+_buildProofTransform(cmsHPROFILE hInputProfile, cmsHPROFILE hOutputProfile, cmsHPROFILE hProofProfile, char *sInMode, char *sOutMode, int iRenderingIntent, int iProofIntent, DWORD cmsFLAGS)
 {
   cmsHTRANSFORM hTransform;
 
@@ -295,10 +297,10 @@ _buildProofTransform(cmsHPROFILE hInputProfile, cmsHPROFILE hOutputProfile, cmsH
                           findLCMStype(sInMode),
                           hOutputProfile,
                           findLCMStype(sOutMode),
-                          hDisplayProfile,
+                          hProofProfile,
                           iRenderingIntent,
-                          iDisplayIntent,
-                          0);
+                          iProofIntent,
+                          cmsFLAGS);
 
   Py_END_ALLOW_THREADS
 
@@ -317,18 +319,6 @@ versions (PyObject *self, PyObject *args)
   return Py_BuildValue("si", PYCMSVERSION, LCMS_VERSION);
 }
 
-static cmsHPROFILE
-open_profile(const char* sProfile)
-{
-  cmsHPROFILE hProfile;
-
-  hProfile = cmsOpenProfileFromFile(sProfile, "r");
-  if (!hProfile)
-    PyErr_SetString(PyExc_IOError, "cannot open profile file");
-
-  return hProfile;
-}
-
 static PyObject *
 buildTransform(PyObject *self, PyObject *args) {
   CmsProfileObject *pInputProfile;
@@ -336,15 +326,16 @@ buildTransform(PyObject *self, PyObject *args) {
   char *sInMode;
   char *sOutMode;
   int iRenderingIntent = 0;
+  int cmsFLAGS = 0;
 
   cmsHTRANSFORM transform = NULL;
 
-  if (!PyArg_ParseTuple(args, "O!O!ss|i:buildTransform", &CmsProfile_Type, &pInputProfile, &CmsProfile_Type, &pOutputProfile, &sInMode, &sOutMode, &iRenderingIntent))
+  if (!PyArg_ParseTuple(args, "O!O!ss|ii:buildTransform", &CmsProfile_Type, &pInputProfile, &CmsProfile_Type, &pOutputProfile, &sInMode, &sOutMode, &iRenderingIntent, &cmsFLAGS))
     return NULL;
 
   cmsErrorAction(LCMS_ERROR_IGNORE);
 
-  transform = _buildTransform(pInputProfile->profile, pOutputProfile->profile, sInMode, sOutMode, iRenderingIntent);
+  transform = _buildTransform(pInputProfile->profile, pOutputProfile->profile, sInMode, sOutMode, iRenderingIntent, cmsFLAGS);
 
   if (!transform)
     return NULL;
@@ -357,20 +348,21 @@ buildProofTransform(PyObject *self, PyObject *args)
 {
   CmsProfileObject *pInputProfile;
   CmsProfileObject *pOutputProfile;
-  CmsProfileObject *pDisplayProfile;
+  CmsProfileObject *pProofProfile;
   char *sInMode;
   char *sOutMode;
   int iRenderingIntent = 0;
-  int iDisplayIntent = 0;
+  int iProofIntent = 0;
+  int cmsFLAGS = 0;
 
   cmsHTRANSFORM transform = NULL;
 
-  if (!PyArg_ParseTuple(args, "O!O!O!ss|ii:buildProofTransform", &CmsProfile_Type, &pInputProfile, &CmsProfile_Type, &pOutputProfile, &CmsProfile_Type, &pDisplayProfile, &sInMode, &sOutMode, &iRenderingIntent, &iDisplayIntent))
+  if (!PyArg_ParseTuple(args, "O!O!O!ss|iii:buildProofTransform", &CmsProfile_Type, &pInputProfile, &CmsProfile_Type, &pOutputProfile, &CmsProfile_Type, &pProofProfile, &sInMode, &sOutMode, &iRenderingIntent, &iProofIntent, &cmsFLAGS))
     return NULL;
 
   cmsErrorAction(LCMS_ERROR_IGNORE);
 
-  transform = _buildProofTransform(pInputProfile->profile, pOutputProfile->profile, pDisplayProfile->profile, sInMode, sOutMode, iRenderingIntent, iDisplayIntent);
+  transform = _buildProofTransform(pInputProfile->profile, pOutputProfile->profile, pProofProfile->profile, sInMode, sOutMode, iRenderingIntent, iProofIntent, cmsFLAGS);
   
   if (!transform)
     return NULL;
@@ -380,100 +372,25 @@ buildProofTransform(PyObject *self, PyObject *args)
 }
 
 static PyObject *
-applyTransform(PyObject *self, PyObject *args)
+cms_transform_apply(CmsTransformObject *self, PyObject *args)
 {
   long idIn;
   long idOut;
-  CmsTransformObject *pTransform;
-  cmsHTRANSFORM hTransform;
   Imaging im;
   Imaging imOut;
 
   int result;
 
-  if (!PyArg_ParseTuple(args, "llO!:applyTransform", &idIn, &idOut, &CmsTransform_Type, &pTransform))
+  if (!PyArg_ParseTuple(args, "ll:apply", &idIn, &idOut))
     return NULL;
 
   im = (Imaging) idIn;
   imOut = (Imaging) idOut;
 
-  cmsErrorAction(LCMS_ERROR_SHOW); /* FIXME */
-
-  hTransform = pTransform->transform; 
-
-  result = pyCMSdoTransform(im, imOut, hTransform);
-
-  return Py_BuildValue("i", result);
-}
-
-static PyObject *
-profileToProfile(PyObject *self, PyObject *args)
-{
-  Imaging im;
-  Imaging imOut;
-  long idIn;
-  long idOut = 0L;
-  char *sInputProfile = NULL;
-  char *sOutputProfile = NULL;
-  int iRenderingIntent = 0;
-  char *inMode;
-  char *outMode;
-  int result;
-
-  cmsHTRANSFORM hTransform = NULL;
-  cmsHPROFILE hInputProfile = NULL;
-  cmsHPROFILE hOutputProfile = NULL;
-
-  /* parse the PyObject arguments, assign to variables accordingly */
-  if (!PyArg_ParseTuple(args, "llss|i:profileToProfile", &idIn, &idOut, &sInputProfile, &sOutputProfile, &iRenderingIntent))
-    return NULL;
-
-  im = (Imaging) idIn;
-
-  if (idOut != 0L) {
-    imOut = (Imaging) idOut;
-  } else
-    imOut = NULL;
-
   cmsErrorAction(LCMS_ERROR_IGNORE);
 
-  /* Check the modes of imIn and imOut to set the color type for the
-     transform.  Note that the modes do NOT have to be the same, as
-     long as they are each supported by the relevant profile
-     specified */
+  result = pyCMSdoTransform(im, imOut, self->transform);
 
-  inMode = im->mode;
-  if (idOut == 0L) {
-    outMode = inMode;
-  } else {
-    outMode = imOut->mode;
-  }
-
-  hInputProfile  = open_profile(sInputProfile);
-  hOutputProfile = open_profile(sOutputProfile);
-
-  if (hInputProfile && hOutputProfile)
-    hTransform = _buildTransform(hInputProfile, hOutputProfile, inMode, outMode, iRenderingIntent);
-
-  if (hOutputProfile)
-    cmsCloseProfile(hOutputProfile);
-  if (hInputProfile)
-    cmsCloseProfile(hInputProfile);
-
-  if (!hTransform)
-    return NULL;
-
-  /* apply the transform to imOut (or directly to im in place if idOut
-     is not supplied) */
-  if (idOut != 0L) {
-    result = pyCMSdoTransform(im, imOut, hTransform);
-  } else {
-    result = pyCMSdoTransform(im, im, hTransform);
-  }
-
-  cmsDeleteTransform(hTransform);
-
-  /* return 0 on success, -1 on failure */
   return Py_BuildValue("i", result);
 }
 
@@ -492,7 +409,7 @@ createProfile(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "s|i:createProfile", &sColorSpace, &iColorTemp))
     return NULL;
 
-  cmsErrorAction(LCMS_ERROR_SHOW); /* FIXME */
+  cmsErrorAction(LCMS_ERROR_IGNORE);
 
   if (strcmp(sColorSpace, "LAB") == 0) {
     if (iColorTemp > 0) {
@@ -502,19 +419,18 @@ createProfile(PyObject *self, PyObject *args)
 	return NULL;
       }
       hProfile = cmsCreateLabProfile(whitePoint);
-    }
-    else {
+    } else
       hProfile = cmsCreateLabProfile(NULL);
-    }
   }
-  else if (strcmp(sColorSpace, "XYZ") == 0) {
+  else if (strcmp(sColorSpace, "XYZ") == 0)
     hProfile = cmsCreateXYZProfile();
-  }
-  else if (strcmp(sColorSpace, "sRGB") == 0) {
+  else if (strcmp(sColorSpace, "sRGB") == 0)
     hProfile = cmsCreate_sRGBProfile();
-  }
-  else {
-    PyErr_SetString(PyExc_ValueError, "ERROR: Color space requested is not valid for built-in profiles");
+  else
+    hProfile = NULL;
+
+  if (!hProfile) {
+    PyErr_SetString(PyExc_ValueError, "failed to create requested color space");
     return NULL;
   }
 
@@ -547,16 +463,14 @@ cms_profile_is_intent_supported(CmsProfileObject *self, PyObject *args)
 static PyMethodDef pyCMSdll_methods[] = {
 
   {"profile_open", cms_profile_open, 1},
-  {"profile_fromstring", cms_profile_open_memory, 1},
+  {"profile_fromstring", cms_profile_fromstring, 1},
 
   /* pyCMS info */
   {"versions", versions, 1},
 
   /* profile and transform functions */
-  {"profileToProfile", profileToProfile, 1},
   {"buildTransform", buildTransform, 1},
   {"buildProofTransform", buildProofTransform, 1},
-  {"applyTransform", applyTransform, 1},
   {"createProfile", createProfile, 1},
 
   {NULL, NULL}
@@ -576,12 +490,6 @@ cms_profile_getattr(CmsProfileObject* self, char* name)
     return PyString_FromString(cmsTakeProductDesc(self->profile));
   if (!strcmp(name, "product_info"))
     return PyString_FromString(cmsTakeProductInfo(self->profile));
-  if (!strcmp(name, "manufacturer"))
-    return PyString_FromString(cmsTakeManufacturer(self->profile));
-  if (!strcmp(name, "model"))
-    return PyString_FromString(cmsTakeModel(self->profile));
-  if (!strcmp(name, "copyright"))
-    return PyString_FromString(cmsTakeCopyright(self->profile));
   if (!strcmp(name, "rendering_intent"))
     return PyInt_FromLong(cmsTakeRenderingIntent(self->profile));
   if (!strcmp(name, "pcs"))
@@ -610,6 +518,7 @@ statichere PyTypeObject CmsProfile_Type = {
 };
 
 static struct PyMethodDef cms_transform_methods[] = {
+    {"apply", (PyCFunction) cms_transform_apply, 1},
     {NULL, NULL} /* sentinel */
 };
 

@@ -4,7 +4,9 @@ _target = None
 _tempfiles = []
 
 def success():
+    import sys
     success.count += 1
+    # print >>open("test.log", "a"), sys.argv[0], success.count, failure.count
 
 def failure(msg=None, frame=None):
     import sys, linecache
@@ -20,6 +22,7 @@ def failure(msg=None, frame=None):
         print prefix + line.strip() + " failed:"
     if msg:
         print "- " + msg
+    # print >>open("test.log", "a"), sys.argv[0], success.count, failure.count
 
 success.count = failure.count = 0
 
@@ -127,7 +130,7 @@ def tempfile(template, *extra):
 # test runner
 
 def run():
-    global _target, run
+    global _target, _tests, run
     import sys, traceback
     _target = sys.modules["__main__"]
     run = None # no need to run twice
@@ -138,11 +141,10 @@ def run():
     tests.sort() # sort by line
     for lineno, name, func in tests:
         try:
-            result = func()
-            if hasattr(result, "__iter__"):
-                # FIXME: make failure report include the arguments
-                for test in result:
-                    test[0](*test[1:])
+            _tests = []
+            func()
+            for func, args in _tests:
+                func(*args)
         except:
             t, v, tb = sys.exc_info()
             tb = tb.tb_next
@@ -153,6 +155,10 @@ def run():
                 print "%s:%d: cannot call test function: %s" % (
                     sys.argv[0], lineno, v)
                 failure.count += 1
+
+def yield_test(function, *args):
+    # collect delayed/generated tests
+    _tests.append((function, args))
 
 def skip(msg=None):
     import os

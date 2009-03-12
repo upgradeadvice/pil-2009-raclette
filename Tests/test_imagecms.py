@@ -62,11 +62,15 @@ def test_sanity():
 
     # extensions
     i = Image.open("Tests/images/rgb.jpg")
-    p = ImageCms.getMemoryProfile(i.info["icc_profile"])
+    p = ImageCms.getOpenProfile(StringIO(i.info["icc_profile"]))
     assert_equal(ImageCms.getProfileName(p).strip(),
                  'IEC 61966-2.1 Default RGB colour space - sRGB')
 
     # the procedural pyCMS API uses PyCMSError for all sorts of errors
     assert_exception(ImageCms.PyCMSError, lambda: ImageCms.profileToProfile(lena(), "foo", "bar"))
+    assert_exception(ImageCms.PyCMSError, lambda: ImageCms.buildTransform("foo", "bar", "RGB", "RGB"))
     assert_exception(ImageCms.PyCMSError, lambda: ImageCms.getProfileName(None))
     assert_exception(ImageCms.PyCMSError, lambda: ImageCms.isIntentSupported(SRGB, None, None))
+
+    # test PointTransform convenience API
+    im = lena().point(t)

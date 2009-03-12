@@ -2,7 +2,15 @@
 
 import glob, os, sys
 
-root = os.path.dirname(__file__)
+try:
+    root = os.path.dirname(__file__)
+except NameError:
+    root = os.path.dirname(sys.argv[0])
+
+if not os.path.isfile("PIL/Image.py"):
+    print "***", "please run this script from the PIL development directory as"
+    print "***", "$ python Tests/run.py"
+    sys.exit(1)
 
 print "-"*68
 
