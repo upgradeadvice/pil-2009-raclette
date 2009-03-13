@@ -306,7 +306,7 @@ mergesort_pixels(PixelList *head, int i)
    return head;
 }
 
-#ifdef TEST_MERGESORT || TEST_SORTED
+#if defined(TEST_MERGESORT) || defined(TEST_SORTED)
 static int
 test_sorted(PixelList *pl[3])
 {
