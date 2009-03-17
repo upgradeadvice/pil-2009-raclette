@@ -5,12 +5,13 @@ from PIL import Image
 def verify(im1):
     im2 = lena("I")
     assert_equal(im1.size, im2.size)
+    pix1 = im1.load()
+    pix2 = im2.load()
     for y in range(im1.size[1]):
         for x in range(im1.size[0]):
-            v1 = im1.getpixel((x, y))
-            v2 = im2.getpixel((x, y))
-            if v1 != v2:
-                failure("got %r at %s, expected %r" % (v1, (x, y), v2))
+            xy = x, y
+            if pix1[xy] != pix2[xy]:
+                failure("got %r at %s, expected %r" % (pix1[xy], xy, pix[xy]))
     success()
 
 def test_basic():
@@ -54,10 +55,22 @@ def test_basic():
         imIn.putpixel((0, 0), 2)
         assert_equal(imIn.getpixel((0, 0)), 2)
 
+        if mode == "L":
+            max = 255
+        else:
+            max = 32767
+
+        imIn = Image.new(mode, (1, 1), 256)
+        assert_equal(imIn.getpixel((0, 0)), min(256, max))
+
+        imIn.putpixel((0, 0), 512)
+        assert_equal(imIn.getpixel((0, 0)), min(512, max))
+
     basic("L")
 
     basic("I;16")
     basic("I;16B")
+    basic("I;16L")
 
     basic("I")
 

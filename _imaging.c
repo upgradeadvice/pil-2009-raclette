@@ -123,6 +123,7 @@
 typedef struct {
     PyObject_HEAD
     Imaging image;
+    ImagingAccess access;
 } ImagingObject;
 
 staticforward PyTypeObject Imaging_Type;
@@ -187,6 +188,7 @@ PyImagingNew(Imaging imOut)
 #endif
 
     imagep->image = imOut;
+    imagep->access = ImagingAccessNew(imOut);
 
     return (PyObject*) imagep;
 }
@@ -199,6 +201,8 @@ _dealloc(ImagingObject* imagep)
     printf("imaging %p deleted\n", imagep);
 #endif
 
+    if (imagep->access)
+      ImagingAccessDelete(imagep->image, imagep->access);
     ImagingDelete(imagep->image);
     PyObject_Del(imagep);
 }
@@ -412,54 +416,45 @@ getlist(PyObject* arg, int* length, const char* wrong_length, int type)
 }
 
 static inline PyObject*
-getpixel(Imaging im, int x, int y)
+getpixel(Imaging im, ImagingAccess access, int x, int y)
 {
-    UINT8 *p;
+    union {
+      UINT8 b[4];
+      INT16 h;
+      INT32 i;
+      FLOAT32 f;
+    } pixel;
 
     if (x < 0 || x >= im->xsize || y < 0 || y >= im->ysize) {
 	PyErr_SetString(PyExc_IndexError, outside_image);
 	return NULL;
     }
 
-    /* single layer */
-    if (im->image8 != NULL) {
-        p = (UINT8*) &im->image8[y][x];
-        switch (im->type) {
-        case IMAGING_TYPE_UINT8:
-            return PyInt_FromLong(p[0]);
-        case IMAGING_TYPE_SPECIAL:
-            /* FIXME: are 16-bit images signed or unsigned??? */
-            if (strcmp(im->mode, "I;16") == 0) {
-                p = (UINT8*) &im->image8[y][x+x];
-                return PyInt_FromLong(L16(p, 0));
-            }
-            if (strcmp(im->mode, "I;16B") == 0) {
-                p = (UINT8*) &im->image8[y][x+x];
-                return PyInt_FromLong(B16(p, 0));
-            }
-        }
+    access->get_pixel(im, x, y, &pixel);
+
+    switch (im->type) {
+    case IMAGING_TYPE_UINT8:
+      switch (im->bands) {
+      case 1:
+        return PyInt_FromLong(pixel.b[0]);
+      case 2:
+        return Py_BuildValue("ii", pixel.b[0], pixel.b[1]);
+      case 3:
+        return Py_BuildValue("iii", pixel.b[0], pixel.b[1], pixel.b[2]);
+      case 4:
+        return Py_BuildValue("iiii", pixel.b[0], pixel.b[1], pixel.b[2], pixel.b[3]);
+      }
+      break;
+    case IMAGING_TYPE_INT32:
+      return PyInt_FromLong(pixel.i);
+    case IMAGING_TYPE_FLOAT32:
+      return PyFloat_FromDouble(pixel.f);
+    case IMAGING_TYPE_SPECIAL:
+      if (strncmp(im->mode, "I;16", 4) == 0)
+        return PyInt_FromLong(pixel.h);
+      break;
     }
 
-    /* multilayer */
-    if (im->image32 != NULL) {
-        p = (UINT8*) &im->image32[y][x];
-        switch (im->type) {
-        case IMAGING_TYPE_UINT8:
-            /* unsigned integer */
-            if (im->bands == 2)
-                return Py_BuildValue("ii", p[0], p[3]);
-            if (im->bands == 3)
-                return Py_BuildValue("iii", p[0], p[1], p[2]);
-            return Py_BuildValue("iiii", p[0], p[1], p[2], p[3]);
-        case IMAGING_TYPE_INT32:
-            /* signed integer */
-            return PyInt_FromLong(*(INT32*) p);
-        case IMAGING_TYPE_FLOAT32:
-            /* floating point */
-            return PyFloat_FromDouble(*(FLOAT32*) p);
-        }
-    }
-        
     /* unknown type */
     Py_INCREF(Py_None);
     return Py_None;
@@ -474,18 +469,17 @@ getink(PyObject* color, Imaging im, char* ink)
     /* fill ink buffer (four bytes) with something that can
        be cast to either UINT8 or INT32 */
 
-    if (im->image8) {
-        /* unsigned integer, single layer */
-        r = PyInt_AsLong(color);
-        if (r == -1 && PyErr_Occurred())
-            return NULL;
-        ink[0] = CLIP(r);
-        ink[1] = ink[2] = ink[3] = 0;
-        return ink;
-    } else {
-        switch (im->type) {
-        case IMAGING_TYPE_UINT8:
-            /* unsigned integer */
+    switch (im->type) {
+    case IMAGING_TYPE_UINT8:
+        /* unsigned integer */
+        if (im->bands == 1) {
+            /* unsigned integer, single layer */
+            r = PyInt_AsLong(color);
+            if (r == -1 && PyErr_Occurred())
+                return NULL;
+            ink[0] = CLIP(r);
+            ink[1] = ink[2] = ink[3] = 0;
+        } else {
             a = 255;
             if (PyInt_Check(color)) {
                 r = PyInt_AS_LONG(color);
@@ -508,20 +502,30 @@ getink(PyObject* color, Imaging im, char* ink)
             ink[1] = CLIP(g);
             ink[2] = CLIP(b);
             ink[3] = CLIP(a);
-            return ink;
-        case IMAGING_TYPE_INT32:
-            /* signed integer */
+        }
+        return ink;
+    case IMAGING_TYPE_INT32:
+        /* signed integer */
+        r = PyInt_AsLong(color);
+        if (r == -1 && PyErr_Occurred())
+            return NULL;
+        *(INT32*) ink = r;
+        return ink;
+    case IMAGING_TYPE_FLOAT32:
+        /* floating point */
+        f = PyFloat_AsDouble(color);
+        if (f == -1.0 && PyErr_Occurred())
+            return NULL;
+        *(FLOAT32*) ink = (FLOAT32) f;
+        return ink;
+    case IMAGING_TYPE_SPECIAL:
+        if (strncmp(im->mode, "I;16", 4) == 0) {
             r = PyInt_AsLong(color);
             if (r == -1 && PyErr_Occurred())
                 return NULL;
-            *(INT32*) ink = r;
-            return ink;
-        case IMAGING_TYPE_FLOAT32:
-            /* floating point */
-            f = PyFloat_AsDouble(color);
-            if (f == -1.0 && PyErr_Occurred())
-                return NULL;
-            *(FLOAT32*) ink = (FLOAT32) f;
+            ink[0] = (UINT8) r;
+            ink[1] = (UINT8) (r >> 8);
+            ink[2] = ink[3] = 0;
             return ink;
         }
     }
@@ -920,7 +924,12 @@ _getpixel(ImagingObject* self, PyObject* args)
     if (_getxy(xy, &x, &y))
         return NULL;
 
-    return getpixel(self->image, x, y);
+    if (self->access == NULL) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+
+    return getpixel(self->image, self->access, x, y);
 }
 
 static PyObject*
@@ -1382,12 +1391,8 @@ _putpixel(ImagingObject* self, PyObject* args)
     if (!getink(color, im, ink))
         return NULL;
 
-    if (im->type == IMAGING_TYPE_SPECIAL)
-        ImagingPutPixel(im, x, y, ink);
-    else if (im->image8)
-        im->image8[y][x] = ink[0];
-    else
-        im->image32[y][x] = *((INT32*) ink);
+    if (self->access)
+        self->access->put_pixel(im, x, y, ink);
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -1505,6 +1510,10 @@ im_setmode(ImagingObject* self, PyObject* args)
         if (!ImagingConvertInPlace(im, mode))
             return NULL;
     }
+
+    if (self->access)
+        ImagingAccessDelete(im, self->access);
+    self->access = ImagingAccessNew(im);
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -1748,7 +1757,7 @@ _getcolors(ImagingObject* self, PyObject* args)
         for (i = 0; i < colors; i++) {
             ImagingColorItem* v = &items[i];
             PyObject* item = Py_BuildValue(
-                "iN", v->count, getpixel(self->image, v->x, v->y)
+                "iN", v->count, getpixel(self->image, self->access, v->x, v->y)
                 );
             PyList_SetItem(out, i, item);
         }
@@ -2647,7 +2656,7 @@ pixel_access_getitem(PixelAccessObject *self, PyObject *xy)
     if (_getxy(xy, &x, &y))
         return NULL;
 
-    return getpixel(self->image->image, x, y);
+    return getpixel(self->image->image, self->image->access, x, y);
 }
 
 static int
@@ -2676,10 +2685,7 @@ pixel_access_setitem(PixelAccessObject *self, PyObject *xy, PyObject *color)
     if (!getink(color, im, ink))
         return -1;
 
-    if (im->image8)
-	im->image8[y][x] = ink[0];
-    else
-	im->image32[y][x] = *((INT32*) ink);
+    self->image->access->put_pixel(im, x, y, ink);
 
     return 0;
 }
@@ -2959,7 +2965,7 @@ image_item(ImagingObject *self, int i)
     } else
         x = y = 0; /* leave it to getpixel to raise an exception */
 
-    return getpixel(im, x, y);
+    return getpixel(im, self->access, x, y);
 }
 
 static PySequenceMethods image_as_sequence = {
@@ -3208,6 +3214,8 @@ init_imaging(void)
     ImagingDraw_Type.ob_type = &PyType_Type;
 #endif
     PixelAccess_Type.ob_type = &PyType_Type;
+
+    ImagingAccessInit();
 
     m = Py_InitModule("_imaging", functions);
     d = PyModule_GetDict(m);
