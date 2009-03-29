@@ -174,15 +174,18 @@ For a list of changes in this release, see the CHANGES document.
    'apt-get' for Debian).
 
 
-2. NOTE: Version 1.1.7 has not been tested with Python 1.5.2.  You
-   may have to tweak things a bit to make it build and run, but most
-   code should be 1.5.2-compatible.
-
+2. NOTE: Version 1.1.7 is not fully compatible with 1.5.2.  Some
+   more modern additions to the library may not work, but the core
+   functionality is available.
 
    To build under Python 1.5.2, you need to install the stand-alone
    version of the distutils library:
 
        http://www.python.org/sigs/distutils-sig/download.html
+
+   You can fetch distutils 1.0.2 from the Python source repository:
+   
+       svn co http://svn.python.org/projects/python/tags/Distutils-1_0_2/Lib/distutils/
 
    For newer releases, the distutils library is included in the
    Python standard library.
