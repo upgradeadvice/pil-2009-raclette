@@ -30,11 +30,9 @@
 
 #ifdef WIN32
 #define WIN32_LEAN_AND_MEAN
-#ifdef __GNUC__
 #undef INT32
 #undef INT64
 #undef UINT32
-#endif
 #include "windows.h"
 #endif
 

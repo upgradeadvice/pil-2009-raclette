@@ -188,7 +188,16 @@ _MODEINFO = {
 
 }
 
-if sys.byteorder == 'little':
+try:
+    byteorder = sys.byteorder
+except AttributeError:
+    import struct
+    if struct.unpack("h", "\0\1")[0] == 1:
+        byteorder = "big"
+    else:
+        byteorder = "little"
+
+if byteorder == 'little':
     _ENDIAN = '<'
 else:
     _ENDIAN = '>'
@@ -2111,8 +2120,8 @@ def register_extension(id, extension):
 
 def _show(image, **options):
     # override me, as necessary
-    _showxv(image, **options)
+    apply(_showxv, (image,), options)
 
 def _showxv(image, title=None, **options):
     import ImageShow
-    ImageShow.show(image, title, **options)
+    apply(ImageShow.show, (image, title), options)

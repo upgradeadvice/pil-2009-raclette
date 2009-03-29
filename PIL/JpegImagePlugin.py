@@ -101,10 +101,9 @@ def APP(self, marker):
             self.info["icc_profile"] = ""
         icc_profile_marker_curr = s[12]
         if self.icc_profile_marker_prev < icc_profile_marker_curr:
-            self.info["icc_profile"] += s[14:]
+            self.info["icc_profile"] = self.info["icc_profile"] + s[14:]
         else:
-            self.info["icc_profile"] = s[14:] + \
-            self.info["icc_profile"]
+            self.info["icc_profile"] = s[14:] + self.info["icc_profile"]
         self.icc_profile_marker_prev = icc_profile_marker_curr
     elif marker == 0xFFEE and s[:5] == "Adobe":
         self.info["adobe"] = i16(s, 5)
@@ -451,7 +450,7 @@ def _save(im, fp, filename):
                 fp = open(fp.name, "rb")
                 header = fp.read(6) # SOI, JFIF or Adobe marker, and size of the latter
                 header_size = struct.unpack(">H", header[4:])[0] - 2
-                header += fp.read(header_size)
+                header = header + fp.read(header_size)
                 data = fp.read()
                 fp.close()
                 fp = open(fp.name, "wb")
@@ -468,7 +467,7 @@ def _save(im, fp, filename):
                 for marker in markers:
                     size = struct.pack(">H", 2 + ICC_OVERHEAD_LEN + len(marker))
                     fp.write("\xFF\xE2" + size + "ICC_PROFILE\0" + chr(i) + chr(len(markers)) + marker)
-                    i += 1
+                    i = i + 1
                 fp.write(data)
             else:
                 if Image.DEBUG:
