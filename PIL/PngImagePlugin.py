@@ -21,14 +21,17 @@
 # 2004-09-20 fl   Added PngInfo chunk container
 # 2004-12-18 fl   Added DPI read support (based on code by Niki Spahiev)
 # 2008-08-13 fl   Added tRNS support for RGB images
+# 2009-03-06 fl   Support for preserving ICC profiles (by Florian Hoech)
+# 2009-03-08 fl   Added zTXT support (from Lowell Alleman)
+# 2009-03-29 fl   Read interlaced PNG files (from Conrado Porto Lopes Gouvua)
 #
-# Copyright (c) 1997-2008 by Secret Labs AB
+# Copyright (c) 1997-2009 by Secret Labs AB
 # Copyright (c) 1996 by Fredrik Lundh
 #
 # See the README file for information on usage and redistribution.
 #
 
-__version__ = "0.8.3"
+__version__ = "0.9"
 
 import re, string
 
@@ -190,7 +193,14 @@ class PngStream(ChunkStream):
         if Image.DEBUG:
             print "iCCP profile name", s[:i]
             print "Compression method", ord(s[i])
-        self.im_info["icc_profile"] = zlib.decompress(s[i+2:])
+        comp_method = ord(s[i])
+        if comp_method != 0:
+            raise SyntaxError("Unknown compression method %s in iCCP chunk" % comp_method)
+        try:
+            icc_profile = zlib.decompress(s[i+2:])
+        except zlib.error:
+            icc_profile = None # FIXME
+        self.im_info["icc_profile"] = icc_profile
         return s
 
     def chunk_IHDR(self, pos, len):
